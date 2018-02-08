@@ -443,7 +443,7 @@ def test(labels,ann):
     te_labels = convert_output(labels)
 
     ann=load_model('NeuralNetwork.h5')
-    image_color = load_image('test/14.jpg')
+    image_color = load_image('test/24.jpg')
     image = preprocess_image(image_color)
     # obrada=invert(image_bin(image_gray(image_color)))
     # kls = erode(dilate(obrada))

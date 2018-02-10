@@ -9,7 +9,7 @@ import pandas as pd
 # keras
 from keras.models import Sequential
 from keras.layers.core import Dense,Activation,Dropout
-from keras.optimizers import SGD, Adagrad
+from keras.optimizers import SGD
 from keras.utils import np_utils, to_categorical
 from keras.models import load_model
 from sklearn.tree import DecisionTreeClassifier
@@ -87,30 +87,6 @@ def resize_region(region):
     return cv2.resize(region,(28,28), interpolation = cv2.INTER_NEAREST)
 
 
-#selektovanje regiona prilikom obucavanja
-def select_region(image_bin):
-    x = 1130;
-    y = 1280;
-    h = 340;
-    w = 200;
-    region = image_bin[y:y + h + 1, x:x + w + 1]
-    region=resize_region(region)
-    region = scale_to_range(region)
-    region=matrix_to_vector(region)
-    return  region
-
-#selektovanje regiona prilikom testiranja slike
-#def select_test_region(image_bin):
- #   x = 1812;
- #   y = 111;
- #   h = 125;
- #   w = 249;
-  #  region = image_bin[y:y + h + 1, x:x + w + 1]
-  #  region=resize_region(region)
-  #  region=scale_to_range(region)
- #   region=matrix_to_vector(region)
-#
-  #  return  region
 
 def normalno(pts):
     # initialzie a list of coordinates that will be ordered
@@ -163,7 +139,6 @@ def rotacija(pts):
 def obrada_ucenja(image, pts):
     # obtain a consistent order of the points and unpack them
     # individually
-    print("Warpovanje")
     rect = normalno (pts)
     (tl, tr, br, bl) = rect
 
@@ -205,7 +180,6 @@ def obrada_ucenja(image, pts):
 def four_point_transform(image, pts):
     # obtain a consistent order of the points and unpack them
     # individually
-    print("Warpovanje")
     rect = normalno(pts)
 
     (tl, tr, br, bl) = rect
@@ -241,7 +215,6 @@ def four_point_transform(image, pts):
     M = cv2.getPerspectiveTransform(rect, dst)
     warped = cv2.warpPerspective(image, M, (maxWidth, maxHeight))
     #warped = cv2.resize(warped, (250, 250), interpolation=cv2.INTER_NEAREST)
-    display_image(warped)
     # return the warped image
     return warped,maxWidth,maxHeight
 
@@ -290,10 +263,8 @@ def select_testcards(image_orig, image_bin):
         size=cv2.contourArea(contour)
         peri=cv2.arcLength(contour,True)
         approx=cv2.approxPolyDP(contour,0.01*peri,True)
-        if(size>100000):
-           #print (size)
-           #print (len (approx))
-           #print ('-------')
+
+        if(size>50000):
            list=[]
 
            for idx,i in enumerate(approx):
@@ -301,10 +272,7 @@ def select_testcards(image_orig, image_bin):
            pts=np.array(list,np.float32)
            #tacke uglova karte
            box.append(pts)
-           #print("Iz vise slika")
-           #display_image(image_bin[y:y+h+1,x:x+w+1])
            regions_array.append(image_orig[y:y+h+1,x:x+w+1])
-           print(len(pts))
 
 
     #regions_array = sorted (regions_array, key=lambda item: item[1][0])
@@ -312,36 +280,6 @@ def select_testcards(image_orig, image_bin):
 
     # sortirati sve regione po x osi (sa leva na desno) i smestiti u promenljivu sorted_regions
     return image_orig, regions_array,box
-
-
-
-def select_sign_contour(image_orig, image_bin):
-    img, contours, hierarchy = cv2.findContours(image_bin.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    regions_array=[]
-
-    print("Broj kontura iz coska")
-    print(len(contours))
-    hull=[]
-    for contour in contours:
-        x, y, w, h = cv2.boundingRect (contour)
-        rect,f,angle=cv2.minAreaRect(contour)
-        cv2.rectangle (image_orig, (x, y), (x + w, y + h), (0, 255, 0), 2)
-
-        size=cv2.contourArea(contour)
-        peri=cv2.arcLength(contour,True)
-        approx=cv2.approxPolyDP(contour,0.01*peri,True)
-        print("Iz konture")
-        print(size)
-        if(size>4000):
-          regions_array.append(image_orig[y:y+h+1,x:x+w+1])
-
-
-#    regions_array = sorted (regions_array, key=lambda item: item[1][0])
- #   sorted_regions = sorted_regions = [region[0] for region in regions_array]
-
-    # sortirati sve regione po x osi (sa leva na desno) i smestiti u promenljivu sorted_regions
-    return image_orig, regions_array
-
 
 
 def matrix_to_vector(image):
@@ -394,51 +332,44 @@ def select_test_region(contour,w,h):
     vieww = 35;
     if(w>h):
 
-        print("Rotacija")
         Mat = cv2.getRotationMatrix2D((vieww / 2, viewh / 2), -90, 1)
         contour = cv2.warpAffine(contour, Mat, (vieww, viewh))
         region = contour[y:y + viewh + 1, x:x + vieww + 1]
-        print("Iseceno")
         plt.imshow(region, 'gray')
         plt.show()
 
         return region
     else:
-        print("Else")
         #plt.imshow(contour, 'gray')
         #plt.show()
 
         region = contour[y:y + viewh + 1, x:x + vieww + 1]
         region = cv2.resize(region, (225, 229), interpolation=cv2.INTER_NEAREST)
 
-        print("Iseceno")
-        plt.imshow(region, 'gray')
-        plt.show()
 
     return region
 
 
 
 def select_sign(contour,sizeOfContour,sizeOfContourNumber):
+
     visina,sirina,kanal=contour.shape
     x = 10;
     y = 0;
     #dimenzije znaka prilikom obucavanja
-    print("PRILIKOM SELEKCIJE ZNAKA")
     #display_image(contour)
-    sirinaZasecenje=int(sirina/6)
     (h, w) = contour.shape[:2]
     if((h+100)<w):
 
         center = (w / 2, h / 2)
         contour=imutils.rotate_bound(contour,90)
-        visina=2845;
-        sirina=1836;
-        sirinaZasecenje=int(sirina/6)+30
-        contour = cv2.resize(contour, (1836,2845), interpolation=cv2.INTER_NEAREST)
-   # display_image(contour)
 
-    region = contour[y:y + int(visina/5) + 10, x:x + sirinaZasecenje]
+        contour = cv2.resize(contour, (1836,2845), interpolation=cv2.INTER_NEAREST)
+    contour = cv2.resize(contour, (1836, 2845), interpolation=cv2.INTER_NEAREST)
+    visina = 2845;
+    sirina = 1836;
+    sirinaZasecenje = int(sirina / 6)-50
+    region = contour[y:y + int(visina/5)+20 , x:x + sirinaZasecenje]
     display_image(region)
 
     slika_obradjena = invert(image_bin(image_gray(region)))
@@ -452,14 +383,12 @@ def select_sign(contour,sizeOfContour,sizeOfContourNumber):
         x, y, w, h = cv2.boundingRect(contours[idx])
         size = cv2.contourArea(contours[idx])
         cv2.rectangle(region, (x, y), (x + w, y + h), (0, 255, 0), 2)
-        print ("Velicina")
-        print (size)
 
-        if(size>sizeOfContour and h>20):
+        if(size>sizeOfContour and h>20 and  w>20 and w>100):
             if(y>maxY):
                 maxY=y
                 maxIndex=idx
-        if (size > sizeOfContourNumber and h>20):
+        if (size > sizeOfContourNumber and h>20 and w>20):
             if (y < minY):
                 minY = y
                 minIndex = idx
@@ -509,130 +438,144 @@ def testiranje_rotacije():
     te_labelsNumber = to_categorical(labelsNumbers);
     ann = create_ann()
     num=create_ann_for_numbers()
-    print ("Mreza kreirana")
 
    # ann = train_ann (ann, data, te_labels)
   #  ann.save ('NeuralNetwork.h5')
 
-    num = train_ann(num, dataNumbers, te_labelsNumber)
-    num.save('NeuralNetworkNumbers.h5')
-    test()
+    #num = train_ann(num, dataNumbers, te_labelsNumber)
+    #num.save('NeuralNetworkNumbers.h5')
+    #test()
 
-sign_name={0:"herc",1:"karo",2:"pik",3:"tref"}
+sign_name={0:"1",1:"3",2:"2",3:"4"}
 
 number_value={0:"1",1:"2",2:"3",3:"4",4:"5",5:"6",6:"7",7:"8",8:"9",9:"10",10:"12",11:"13",12:"14"}
-def test():
-    print("test")
+def sortFile(x):
+    x=np.array(x)
+    for c in range(len(x)):
+        for i in xrange(1, len(x[c]), 2):
 
+            for j in xrange(1,len(x[c]),2):
+                if(x[c][i]<x[c][j]):
+                    temp=x[c][j]
+                    tempSign=x[c][j-1]
+                    x[c][j]=x[c][i]
+                    x[c][j-1] = x[c][i-1]
+                    x[c][i]=temp
+                    x[c][i-1]=tempSign
+    return  x
+
+def sort(array):
+    for i in xrange(1, len(array), 2):
+
+        for j in xrange(1,len(array),2):
+            if(array[i]<array[j]):
+                temp=array[j]
+                tempSign=array[j-1]
+                array[j]=array[i]
+                array[j-1] = array[i-1]
+                array[i]=temp
+                array[i-1]=tempSign
+    return  array
+def klasifikacija(cards,card,f):
+    print(cards)
+    cards =sort(cards)
+    #numbers=sorted(cards[1:len(cards):2],key=int)
+    #signs = sorted(cards[0:len(cards):2], key=int)
+    #cards=[]
+
+    print(cards)
+    for i in xrange(1,len(cards),2):
+        if(cards[i]==1):
+            cards[i]=11
+        elif(cards[i]==14):
+            cards[i] = 13
+        elif (cards[i] == 13):
+            cards[i] = 12
+        elif (cards[i] == 12):
+            cards[i] = 11
+    df = pd.read_csv('PokerHandDataset.txt')
+    df.head()
+    x = df.iloc[:,0:-1].copy()
+    x= sortFile(x)
+    y=df.iloc[:,10].copy()
+    clf = RandomForestClassifier(n_estimators=10,n_jobs=-1, criterion='entropy')
+    clf.fit(x, y)
+
+    pred = clf.predict(np.array(cards))
+    if (pred == 0):
+        f.write(card + ' - Nema kombinacija.\n')
+    elif (pred == 1):
+        f.write(card + ' - Jedan par.\n')
+    elif (pred == 2):
+        f.write(card + ' - Dva para.\n')
+    elif (pred == 3):
+        f.write(card + ' - Tri iste.\n')
+    elif (pred == 4):
+        f.write(card + ' - Straight.\n')
+    elif (pred == 5):
+        f.write(card + ' - Flush.\n')
+    elif (pred == 6):
+        f.write(card + ' - Full house.\n')
+    elif (pred == 7):
+        f.write(card + ' - Poker.\n')
+    elif (pred == 8):
+        f.write(card + ' - Straight flush.\n')
+    elif (pred == 9):
+        f.write(card + ' - Royal flush.\n')
+    else:
+        f.write('Greskaaa!\n')
+
+def test():
+
+    f = open('Predicts.txt', 'w')
 
     ann=load_model('NeuralNetwork.h5')
 
     num=load_model('NeuralNetworkNumbers.h5')
-    image_color = load_image('test/16.jpg')
-    image = preprocess_image(image_color)
-    # obrada=invert(image_bin(image_gray(image_color)))
-    # kls = erode(dilate(obrada))
-    img, contours, box = select_testcards(image_color.copy(), image)
-    display_image(img)
-    for i in range(len(contours)):
-        warp, w, h = four_point_transform(img, (box[i]))
-        display_image(warp)
-        region,number = select_sign(warp,300,200)
-        r = resize_region(region)
-        r = scale_to_range(r)
-        r = matrix_to_vector(r)
-        input = [r]
+    pictures=os.listdir('test')
+    for card in pictures:
+        image_color = load_image('test/'+card)
+        image = preprocess_image(image_color)
 
-        number = resize_region(number)
-        number = scale_to_range(number)
-        number = matrix_to_vector(number)
-        inputNumber = [number]
+        img, contours, box = select_testcards(image_color.copy(), image)
+        display_image(img)
+        cards=[]
+        for i in range(len(contours)):
+            warp, w, h = four_point_transform(img, (box[i]))
+            display_image(warp)
+            region,number = select_sign(warp,300,200)
+            r = resize_region(region)
+            r = scale_to_range(r)
+            r = matrix_to_vector(r)
+            input = [r]
 
-        result = ann.predict(np.array(input),verbose=0)
-        print (result)
-        maxIndex = np.argmax(result)
-        print(sign_name[maxIndex])
-        print("Za broj")
+            number = resize_region(number)
+            number = scale_to_range(number)
+            number = matrix_to_vector(number)
+            inputNumber = [number]
 
-        result1 = num.predict(np.array(inputNumber), verbose=0)
-        print (result1)
-        maxindex = np.argmax(result1)
-        print(number_value[maxindex])
+            result = ann.predict(np.array(input), verbose=0)
+            print (result)
+            maxIndex = np.argmax(result)
+            print(sign_name[maxIndex])
+            cards.append(int(sign_name.get(maxIndex, "none")))
+
+            result1 = num.predict(np.array(inputNumber), verbose=0)
+            print (result1)
+            maxindex = np.argmax(result1)
+            print(number_value[maxindex])
+
+            cards.append(int(number_value.get(maxindex,"none")))
+
+
+        klasifikacija(cards,card,f)
+
+    f.close()
 
 #testiranje_rotacije()
 test()
-def trainPokerNetwork():
-    f = open('CardDataSet.txt','r')
-    textLines = []
-    labels = []
-    ranks = []
-    numbers = []
-    for line in f:
-        newData = []
-        ranks = []
-        numbers = []
-        parts = line.split(",")
-        ranks.append(parts[0])
-        labels.append(parts[0])
-        print(labels)
-        numbers.append(parts[1])
-        print(ranks)
-
-        print(numbers)
-#        ranks = sorted(ranks, key=int)
- #       numbers = sorted(numbers, key=int)
-  #      highestNumber = numbers[-1]
-   #     numbersExtracted = []
-    #    numbersExtracted.append(highestNumber)
-     #   ranksExtracted = []
-       # for s in range(len(ranks)-1):
-       #     diff = ranks[s+1] - ranks[s]
-       #     ranksExtracted.append(diff)
-
-      #  for n in range(len(numbers)-1):
-      #      diff = numbers[n+1] - numbers[n]
-      #      numbersExtracted.append(diff)
-
-        newData.extend(ranks)
-        newData.extend(numbers)
-        textLines.append(newData)
-
-    print("Priprema ulaza.....")
-    #
-    data = []
-    for x in  textLines:
-        data.append(x)
-    #
-    data = np.array(data)
-    #
-    print("Zavrsena priprema.....")
-    #
-    testLabels = np.array(labels)
-
-    model = RandomForestClassifier(n_estimators=10,n_jobs=-1, criterion='entropy')
-    model.fit(data, testLabels)
-    #score = cross_val_score(model, data, testLabels)
-    #print score.mean()
-    print(model.score(data, testLabels))
-    return model
 
 #Klasifikator (predvidjanje iz fajla)
-#trainNetwork()
-from sklearn import cross_validation
-from sklearn.preprocessing import OneHotEncoder
 
-def klasifikacija():
-    column = ["S1", "Y"]
-    df = pd.read_csv('PokerHandDataset.txt')
-    df.head()
-    x = df.iloc[:,2:-1].copy()
-    y=df.iloc[:,10].copy()
-    enc = OneHotEncoder(sparse=False)
-    enc.fit(x)
-    dum = enc.transform(x)
-    X = pd.DataFrame(dum)
-    x_train, x_test, y_train, y_test = cross_validation.train_test_split(x,y , test_size=0.3)
-    clf = DecisionTreeClassifier(random_state=0)
-    clf.fit(x_train, y_train)
-    pred = clf.predict(x_test)
-    print(clf.score(x_test, y_test))
+
+
